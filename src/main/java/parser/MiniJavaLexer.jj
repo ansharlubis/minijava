@@ -1,0 +1,223 @@
+options {
+  JAVA_UNICODE_ESCAPE = true;
+}
+
+PARSER_BEGIN(MiniJavaParser)
+    package parser;
+    import chap4.syntaxtree.*;
+    public class MiniJavaParser {}
+PARSER_END(MiniJavaParser)
+
+
+// Insert a specification of a lexical analysis here.
+TOKEN : {
+    < CLASS: "class" >
+  | < PUBLIC: "public" >
+  | < STATIC: "static" >
+  | < VOID: "void" >
+  | < MAIN: "main" >
+  | < STRINGTYPE: "String" >
+  | < EXTENDS: "extends" >
+  | < RETURN: "return" >
+  | < INTTYPE: "int" >
+  | < BOOLEANTYPE: "boolean" >
+  | < IF: "if" >
+  | < ELSE: "else" >
+  | < WHILE: "while" >
+  | < PRINT: "System.out.println" >
+  | < LENGTH: "length" >
+  | < TRUE: "true" >
+  | < FALSE: "false" >
+  | < NEW: "new" >
+  | < THIS: "this" >
+  | < LBRACK: "{" >
+  | < RBRACK: "}" >
+  | < LPAREN: "(" >
+  | < RPAREN: ")" >
+  | < LSQUARE: "[" >
+  | < RSQUARE: "]" >
+  | < SEMICOLON: ";" >
+  | < COMMA: "," >
+  | < EQUAL: "=" >
+  | < DOT: "." >
+  | < NOT: "!" >
+  | < ANDAND: "&&" >
+  | < PLUS: "+" >
+  | < LT: "<">
+  | < MINUS: "-" >
+  | < TIMES: "*">
+  | < IDENTIFIER: (["a"-"z"]|["A"-"Z"]) (["a"-"z"]|["A"-"Z"]|["0"-"9"]|"_")* >
+  | < INTEGER_LITERAL: ("~")? ["1"-"9"] (["0"-"9"])* >
+}
+
+SKIP : {
+    " "
+  | "\t"
+  | "\n"
+  | "\r"
+}
+
+// The following is a simple grammar that will allow you
+// to test the generated lexer.
+
+Program Program():
+{ MainClass m; ClassDeclList cl=new ClassDeclList(); ClassDecl c; }
+{
+  m=MainClass()
+  ( c=ClassDecl() { cl.addElement(c); } )*
+  { return new Program(m,cl); }
+}
+
+MainClass MainClass():
+{ Token n; Token arg; Statement s; }
+{
+  "class" n=<IDENTIFIER> <LBRACK>
+     <PUBLIC> <STATIC> <VOID> <MAIN> <LPAREN> <STRINGTYPE> <LSQUARE> <RSQUARE> arg=<IDENTIFIER> <RPAREN>
+  <LBRACK> s=Statement() <RBRACK> <RBRACK>
+  { return new MainClass(new Identifier(n.image),new Identifier(arg.image),s); }
+}
+
+ClassDecl ClassDecl():
+{ Token n; Token e; VarDeclList vl = new VarDeclList(); VarDecl v;
+  MethodDeclList ml = new MethodDeclList(); MethodDecl m; }
+{
+  LOOKAHEAD(3)
+  <CLASS> n=<IDENTIFIER> <LBRACK>
+    ( v=VarDecl() { vl.addElement(v); } )*
+    ( m=MethodDecl() { ml.addElement(m); } )*
+  <RBRACK>
+  { return new ClassDeclSimple(new Identifier(n.image),vl,ml); }
+| <CLASS> n=<IDENTIFIER> <EXTENDS> e=<IDENTIFIER> <LBRACK>
+    ( v=VarDecl() { vl.addElement(v); } )*
+    ( m=MethodDecl() { ml.addElement(m); } )*
+  <RBRACK>
+  { return new ClassDeclExtends(new Identifier(n.image),new Identifier(e.image),vl,ml); }
+}
+
+VarDecl VarDecl():
+{ Type t; Token n; }
+{ t=Type() n=<IDENTIFIER> <SEMICOLON> { return new VarDecl(t,new Identifier(n.image)); } }
+
+MethodDecl MethodDecl():
+{ Type t; Token n; FormalList fl = new FormalList(); VarDeclList vl = new VarDeclList();
+  VarDecl v; StatementList sl = new StatementList(); Statement s; Exp e; }
+{
+  <PUBLIC> t=Type() n=<IDENTIFIER> <LPAREN>( fl=FormalList() )? <RPAREN> <LBRACK>
+    ( LOOKAHEAD(2) v=VarDecl() { vl.addElement(v); } )*
+    ( s=Statement() { sl.addElement(s); } )*
+    <RETURN> e=Expression() <SEMICOLON>
+  <RBRACK>
+  { return new MethodDecl(t,new Identifier(n.image),fl,vl,sl,e); }
+}
+
+FormalList FormalList():
+{ Type t; Token n; FormalList fl = new FormalList(); Formal f; }
+{ t=Type() n=<IDENTIFIER>
+    { fl.addElement(new Formal(t,new Identifier(n.image))); }
+  ( f=FormalRest() { fl.addElement(f); } )*
+  { return fl; }
+}
+
+Formal FormalRest():
+{ Type t; Token n; }
+{ <COMMA> t=Type() n=<IDENTIFIER> { return new Formal(t,new Identifier(n.image)); } }
+
+Type Type():
+{ Token c; }
+{
+  LOOKAHEAD(2) <INTTYPE> <LSQUARE> <RSQUARE> { return new IntArrayType(); }
+| "boolean" { return new BooleanType(); }
+| <INTTYPE> { return new IntegerType(); }
+| c=<IDENTIFIER> { return new IdentifierType(c.image); }
+}
+
+Statement Statement():
+{ StatementList sl = new StatementList(); Token i;
+  Exp e1; Exp e2; Statement s1; Statement s2;
+}
+{
+  <LBRACK> ( s1=Statement() { sl.addElement(s1); } )* <RBRACK>
+    { return new Block(sl); }
+| <IF> <LPAREN> e1=Expression() <RPAREN> s1=Statement() <ELSE> s2=Statement()
+    { return new If(e1,s1,s2); }
+| <WHILE> <LPAREN> e1=Expression() <RPAREN> s1=Statement()
+    { return new While(e1,s1); }
+| <PRINT> <LPAREN> e1=Expression() <RPAREN> <SEMICOLON>
+    { return new Print(e1); }
+| LOOKAHEAD(2) i=<IDENTIFIER> <EQUAL> e1=Expression() <SEMICOLON>
+    { return new Assign(new Identifier(i.image),e1); }
+| i=<IDENTIFIER> <LSQUARE> e1=Expression() <RSQUARE> <EQUAL> e2=Expression() <SEMICOLON>
+    { return new ArrayAssign(new Identifier(i.image),e1,e2); }
+}
+
+/*
+void Expression():
+{}
+{
+  Expression() <OP> Expression()
+| Expression() <LSQUARE> Expression() <RSQUARE>
+| Expression() <DOT> <LENGTH>
+| Expression() <DOT> <IDENTIFIER> <LPAREN> ( ExpList() )? <RPAREN>
+| <INTEGER_LITERAL>
+| <TRUE>
+| <FALSE>
+| <IDENTIFIER>
+| <THIS>
+| LOOKAHEAD(2) <NEW> <INTTYPE> <LSQUARE> Expression() <RSQUARE>
+| <NEW> <IDENTIFIER> <LPAREN> <RPAREN>
+| <NOT> Expression()
+| <LPAREN> Expression() <RPAREN>
+}
+ */
+
+Exp Expression():
+{ Exp e1, e2; }
+{
+  e1=ExpressionHead() e2=ExpressionTail(e1) { return e2; }
+}
+
+Exp ExpressionHead():
+{ Token n; Exp e; }
+{ n=<INTEGER_LITERAL> { return new IntegerLiteral(Integer.parseInt(n.image)); }
+| <TRUE> { return new True(); }
+| <FALSE> { return new False(); }
+| n=<IDENTIFIER> { return new IdentifierExp(n.image); }
+| <THIS> { return new This(); }
+| LOOKAHEAD(2) <NEW> <INTTYPE> <LSQUARE> e=Expression() <RSQUARE> { return new NewArray(e); }
+| <NEW> n=<IDENTIFIER> <LPAREN> <RPAREN> { return new NewObject(new Identifier(n.image)); }
+| <NOT> e=Expression() { return new Not(e); }
+| <LPAREN> e=Expression() <RPAREN> { return e; }
+}
+
+Exp ExpressionTail(Exp h):
+{ Exp e; ExpList el = new ExpList(); Token n; }
+{ <ANDAND> e=Expression()
+    { return new And(h,e); }
+| <LT> e=Expression()
+    { return new LessThan(h,e); }
+| <PLUS> e=Expression()
+    { return new Plus(h,e); }
+| <MINUS> e=Expression()
+    { return new Minus(h,e); }
+| <TIMES> e=Expression()
+    { return new Times(h,e); }
+| <LSQUARE> e=Expression() <RSQUARE>
+    { return new ArrayLookup(h,e); }
+| LOOKAHEAD(2) <DOT> <LENGTH>
+    { return new ArrayLength(h); }
+| <DOT> n=<IDENTIFIER> <LPAREN> ( el=ExpList() )? <RPAREN>
+    { return new Call(h,new Identifier(n.image),el); }
+| {}
+    { return h; }
+}
+
+ExpList ExpList():
+{ ExpList el = new ExpList(); Exp e, er; }
+{ e=Expression() { el.addElement(e);}
+  ( er=ExpRest() { el.addElement(er); } )*
+    { return el; }
+}
+
+Exp ExpRest():
+{ Exp e; }
+{ <COMMA> e=Expression() { return e; } }
