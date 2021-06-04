@@ -1,5 +1,6 @@
 package syntaxtree;
 
+import visitor.TypeCheckerVisitor.TypeAssignVisitor;
 import visitor.Visitor;
 
 public class Call extends Exp  {
@@ -12,4 +13,6 @@ public class Call extends Exp  {
     public void accept(Visitor v) {
         v.visit(this);
     }
+    public Type accept(TypeAssignVisitor v) { return v.visit(this); }
+
 }

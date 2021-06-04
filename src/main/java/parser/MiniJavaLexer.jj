@@ -4,7 +4,7 @@ options {
 
 PARSER_BEGIN(MiniJavaParser)
     package parser;
-    import chap4.syntaxtree.*;
+    import syntaxtree.*;
     public class MiniJavaParser {}
 PARSER_END(MiniJavaParser)
 

@@ -4,8 +4,6 @@ import syntaxtree.*;
 
 public class PrettyPrintVisitor implements Visitor {
 
-  private int indent = 0;
-
   // MainClass m;
   // ClassDeclList cl;
   public void visit(Program n) {
